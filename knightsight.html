@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KnightSight EdgeVision</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF6B00;
+            --primary-glow: rgba(255, 107, 0, 0.4);
+            --accent: #00F5FF;
+            --accent-glow: rgba(0, 245, 255, 0.4);
+            --bg: #040A0F;
+            --surface: #0A1520;
+            --border: #1A3040;
+            --valid: #00FF66;
+            --valid-glow: rgba(0, 255, 102, 0.3);
+            --invalid: #FF3333;
+            --font-heading: 'Orbitron', sans-serif;
+            --font-data: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(circle at center, rgba(0, 245, 255, 0.03) 0%, transparent 70%),
+                linear-gradient(rgba(26, 48, 64, 0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(26, 48, 64, 0.2) 1px, transparent 1px);
+            background-size: 100% 100%, 20px 20px, 20px 20px;
+            color: #fff;
+            font-family: var(--font-data);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* Typography */
+        h1, h2, h3, h4 { font-family: var(--font-heading); text-transform: uppercase; margin: 0; }
+        .text-accent { color: var(--accent); }
+        .text-primary { color: var(--primary); }
+
+        /* Header */
+        .top-bar {
+            height: 40px;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-family: var(--font-heading);
+            letter-spacing: 2px;
+            font-size: 14px;
+            background: rgba(10, 21, 32, 0.9);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+            z-index: 100;
+        }
+        .live-indicator {
+            color: var(--invalid);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            text-shadow: 0 0 8px rgba(255, 51, 51, 0.6);
+        }
+        .live-indicator .dot {
+            width: 10px;
+            height: 10px;
+            background: var(--invalid);
+            border-radius: 50%;
+            animation: pulse-red 1s infinite alternate;
+        }
+
+        /* Layout */
+        .app-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            opacity: 0;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .left-sidebar {
+            width: 260px;
+            border-right: 2px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        .center-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            gap: 20px;
+            overflow-y: auto;
+            position: relative;
+            background: rgba(4, 10, 15, 0.5);
+            opacity: 0;
+        }
+
+        .right-sidebar {
+            width: 320px;
+            border-left: 2px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+            opacity: 0;
+            z-index: 10;
+        }
+
+        /* LEFT SIDEBAR COMPONENTS */
+        .logo-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        .logo-hexagon {
+            width: 60px;
+            height: 60px;
+            background: transparent;
+            border: 2px solid var(--accent);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: var(--font-heading);
+            font-weight: 900;
+            font-size: 24px;
+            color: var(--accent);
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+            margin-bottom: 12px;
+            box-shadow: 0 0 15px var(--accent-glow);
+            text-shadow: 0 0 8px var(--accent-glow);
+        }
+        .logo-text { font-size: 18px; font-weight: 700; letter-spacing: 3px; color: #fff; }
+        .logo-sub { font-size: 10px; color: var(--accent); letter-spacing: 2px; margin-top: 4px; }
+
+        .system-status {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+        }
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--valid);
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        .status-header .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--valid);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--valid-glow);
+            animation: pulse-green 1.5s infinite alternate;
+        }
+        .model-tags { display: flex; flex-direction: column; gap: 8px; }
+        .model-tag {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #88A;
+        }
+        .model-tag span:last-child { color: var(--accent); }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: rgba(255, 255, 255, 0.7);
+            font-family: var(--font-heading);
+            font-size: 12px;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(0, 245, 255, 0.05);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            box-shadow: inset 0 0 10px rgba(0, 245, 255, 0.1);
+        }
+        .nav-item svg { width: 18px; height: 18px; stroke: currentColor; fill: none; }
+
+        .bottom-info {
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            color: #668;
+        }
+        .clock { font-size: 14px; color: #fff; letter-spacing: 1px; }
+        .edge-node {
+            background: rgba(255, 107, 0, 0.1);
+            color: var(--primary);
+            padding: 4px 8px;
+            border: 1px solid var(--primary);
+            display: inline-block;
+            align-self: flex-start;
+            font-family: var(--font-heading);
+        }
+
+        /* CENTER PANEL COMPONENTS */
+        .upload-zone {
+            height: 300px;
+            border: 1px dashed var(--border);
+            background: rgba(10, 21, 32, 0.6);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .upload-zone:hover {
+            border-color: var(--accent);
+            background: rgba(10, 21, 32, 0.9);
+            box-shadow: inset 0 0 20px var(--accent-glow);
+        }
+        
+        .corner-bracket {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 2px solid var(--accent);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .corner-tl { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+        .corner-tr { top: -2px; right: -2px; border-left: none; border-bottom: none; }
+        .corner-bl { bottom: -2px; left: -2px; border-right: none; border-top: none; }
+        .corner-br { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+
+        .upload-zone:hover .corner-tl { transform: translate(-5px, -5px); box-shadow: -4px -4px 10px var(--accent-glow); }
+        .upload-zone:hover .corner-tr { transform: translate(5px, -5px); box-shadow: 4px -4px 10px var(--accent-glow); }
+        .upload-zone:hover .corner-bl { transform: translate(-5px, 5px); box-shadow: -4px 4px 10px var(--accent-glow); }
+        .upload-zone:hover .corner-br { transform: translate(5px, 5px); box-shadow: 4px 4px 10px var(--accent-glow); }
+
+        .crosshair {
+            width: 60px;
+            height: 60px;
+            position: relative;
+            margin-bottom: 20px;
+            transition: transform 0.5s ease;
+        }
+        .crosshair::before, .crosshair::after {
+            content: ''; position: absolute; background: var(--accent);
+        }
+        .crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
+        .crosshair::after { left: 50%; top: 0; height: 100%; width: 2px; transform: translateX(-50%); }
+        
+        .upload-zone:hover .crosshair { transform: rotate(90deg) scale(1.1); }
+        
+        .upload-text {
+            font-family: var(--font-heading);
+            color: var(--accent);
+            letter-spacing: 2px;
+            font-size: 16px;
+            text-shadow: 0 0 5px var(--accent-glow);
+        }
+
+        .pulse-amber {
+            animation: pulse-ring 1s infinite alternate;
+            border-color: var(--primary) !important;
+        }
+
+        .image-viewer {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: #02060A;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: none;
+        }
+        .image-viewer.active { display: block; animation: fadeIn 0.5s ease forwards; }
+
+        #main-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .scanline {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--accent);
+            box-shadow: 0 0 20px 5px var(--accent-glow);
+            filter: blur(1px);
+            opacity: 0.8;
+            animation: scan 3s ease-in-out infinite;
+            display: none;
+        }
+
+        .analyzing-text {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: var(--font-heading);
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            text-shadow: 0 0 15px var(--primary-glow);
+            background: rgba(0,0,0,0.7);
+            padding: 10px 20px;
+            border: 1px solid var(--primary);
+            display: none;
+            z-index: 5;
+        }
+
+        .json-output-wrapper {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 200px;
+        }
+        .json-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .json-title { font-family: var(--font-heading); font-size: 12px; color: #88A; }
+        .json-actions { display: flex; gap: 10px; }
+        .btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #88A;
+            padding: 4px 10px;
+            font-family: var(--font-data);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 245, 255, 0.1);
+        }
+        .json-body {
+            padding: 15px;
+            font-family: var(--font-data);
+            font-size: 13px;
+            color: #A0C0D0;
+            overflow-y: auto;
+            flex: 1;
+            white-space: pre-wrap;
+        }
+        .json-string { color: #A8FF60; }
+        .json-number { color: #FF9D00; }
+        .json-boolean { color: #FF628C; }
+        .json-key { color: #00F5FF; }
+
+        /* RIGHT SIDEBAR COMPONENTS */
+        .sidebar-title {
+            font-family: var(--font-heading);
+            font-size: 16px;
+            color: #fff;
+            letter-spacing: 2px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            text-transform: uppercase;
+        }
+        .blink { animation: blinker 1s linear infinite; }
+
+        .results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+        }
+        
+        .result-card {
+            background: rgba(10, 21, 32, 0.8);
+            border: 1px solid var(--border);
+            padding: 15px;
+            position: relative;
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s;
+        }
+        .result-card.show {
+            transform: translateX(0);
+            opacity: 1;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .result-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .vehicle-type {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-heading);
+            font-size: 12px;
+            color: #fff;
+        }
+        .vehicle-type svg { width: 16px; height: 16px; stroke: var(--primary); fill: none; }
+        
+        .conf-wrapper { width: 80px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+        .conf-bar { height: 100%; background: var(--primary); width: 0%; transition: width 0.6s ease-out; }
+        
+        .plate-number {
+            font-family: var(--font-data);
+            font-size: 26px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 5px var(--accent-glow), 0 0 15px var(--accent-glow);
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            min-height: 35px; /* Prevent layout shift during typewriter */
+            display: flex;
+            align-items: center;
+        }
+        
+        .plate-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            background: rgba(0,0,0,0.4);
+            padding: 6px 10px;
+            border-left: 2px solid var(--valid);
+        }
+        .plate-status.invalid { border-left-color: var(--primary); }
+        
+        .status-badge {
+            display: flex; align-items: center; gap: 4px; color: var(--valid); font-weight: bold;
+        }
+        .invalid .status-badge { color: var(--primary); }
+        .raw-text { color: #668; text-decoration: line-through; }
+
+        .statistics-panel {
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-label { font-size: 11px; color: #88A; font-family: var(--font-heading); }
+        .stat-value { font-size: 24px; color: var(--accent); font-weight: 700; text-shadow: 0 0 8px var(--accent-glow); }
+        .stat-value-small { font-size: 14px; color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.5); font-weight: bold;}
+
+        .gauge-container {
+            width: 60px; height: 60px; position: relative;
+        }
+        .gauge-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .gauge-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 4; }
+        .gauge-fill { fill: none; stroke: var(--valid); stroke-width: 4; stroke-dasharray: 125.6; stroke-dashoffset: 125.6; transition: stroke-dashoffset 1s ease-out; }
+        .gauge-text {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 12px; font-weight: bold; color: var(--valid);
+            text-shadow: 0 0 5px var(--valid-glow);
+        }
+
+        .sparkline { width: 100px; height: 30px; }
+        .sparkline path { fill: none; stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 2px var(--accent)); }
+
+        /* Animations */
+        @keyframes pulse-red { 0% { opacity: 0.5; box-shadow: 0 0 0 rgba(255,51,51,0); } 100% { opacity: 1; box-shadow: 0 0 10px rgba(255,51,51,0.8); } }
+        @keyframes pulse-green { 0% { opacity: 0.5; box-shadow: 0 0 0 rgba(0,255,102,0); } 100% { opacity: 1; box-shadow: 0 0 10px rgba(0,255,102,0.8); } }
+        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(255,107,0,0.4); } 100% { box-shadow: 0 0 0 20px rgba(255,107,0,0); } }
+        @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes scan { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        @keyframes glitch {
+            0% { clip-path: inset(10% 0 80% 0); transform: translate(-2px, 2px); }
+            20% { clip-path: inset(80% 0 10% 0); transform: translate(2px, -2px); }
+            40% { clip-path: inset(40% 0 50% 0); transform: translate(-2px, 2px); }
+            60% { clip-path: inset(60% 0 20% 0); transform: translate(2px, -2px); }
+            80% { clip-path: inset(20% 0 60% 0); transform: translate(-2px, 2px); }
+            100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+        }
+        .glitch-anim { animation: glitch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both 2; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Header -->
+    <header class="top-bar">
+        <div class="title" style="color: #A0C0D0;">KNIGHTSIGHT EDGEVISION CHALLENGE — HACKATHON DEMO</div>
+        <div class="live-indicator"><span class="dot"></span> LIVE</div>
+    </header>
+
+    <div class="app-container">
+        <!-- Left Sidebar -->
+        <aside class="left-sidebar">
+            <div class="logo-area" id="logo-block">
+                <div class="logo-hexagon">KS</div>
+                <div class="logo-text">KNIGHTSIGHT</div>
+                <div class="logo-sub">EDGEVISION v2.0</div>
+            </div>
+
+
+
+            <nav class="sidebar-nav">
+                <div class="nav-item active">
+                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                    UPLOAD
+                </div>
+                <div class="nav-item">
+                    <svg viewBox="0 0 24 24"><path d="M2 12h4l2-9 5 18 3-9h6"/></svg>
+                    LIVE FEED
+                </div>
+                <div class="nav-item">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    HISTORY
+                </div>
+                <div class="nav-item">
+                    <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                    ANALYTICS
+                </div>
+                <div class="nav-item">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    SETTINGS
+                </div>
+            </nav>
+
+            <div class="bottom-info">
+                <div class="clock" id="sys-clock">00:00:00</div>
+                <div class="edge-node">EDGE NODE: COLAB-T4</div>
+            </div>
+        </aside>
+
+        <!-- Center Panel -->
+        <main class="center-panel">
+            <div class="upload-zone" id="upload-zone">
+                <div class="corner-bracket corner-tl"></div>
+                <div class="corner-bracket corner-tr"></div>
+                <div class="corner-bracket corner-bl"></div>
+                <div class="corner-bracket corner-br"></div>
+                <div class="crosshair"></div>
+                <div class="upload-text">DROP VEHICLE IMAGE OR CLICK TO SCAN</div>
+            </div>
+
+            <div class="image-viewer" id="image-viewer">
+                <canvas id="main-canvas"></canvas>
+                <div class="scanline" id="scanline"></div>
+                <div class="analyzing-text" id="analyzing-text">ANALYZING<span class="blink">...</span></div>
+            </div>
+
+            <div class="json-output-wrapper">
+                <div class="json-header">
+                    <div class="json-title">OUTPUT.JSON</div>
+                    <div class="json-actions">
+                        <button class="btn" onclick="copyJSON()">COPY TO CLIPBOARD</button>
+                        <button class="btn">EXPORT CSV</button>
+                    </div>
+                </div>
+                <div class="json-body" id="json-body">
+// SYSTEM WAITING FOR INPUT...
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside class="right-sidebar">
+            <h2 class="sidebar-title">DETECTION RESULTS<span class="blink">_</span></h2>
+            
+            <div class="results-list" id="results-list">
+                <!-- Cards will be injected here -->
+            </div>
+
+            <div class="statistics-panel">
+                <div class="stat-row">
+                    <div class="stat-label">TOTAL VEHICLES</div>
+                    <div class="stat-value" id="stat-total">0</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">VALID ALPR RATIO</div>
+                    <div class="gauge-container">
+                        <svg class="gauge-svg" viewBox="0 0 50 50">
+                            <circle class="gauge-bg" cx="25" cy="25" r="20" />
+                            <circle class="gauge-fill" id="gauge-fill" cx="25" cy="25" r="20" />
+                        </svg>
+                        <div class="gauge-text"><span id="stat-ratio">0</span>%</div>
+                    </div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">LATENCY (ms)</div>
+                    <div style="display:flex; align-items:center; gap: 10px;">
+                        <svg class="sparkline" viewBox="0 0 100 30">
+                            <path d="M0,25 L20,15 L40,28 L60,10 L80,20 L100,5" />
+                        </svg>
+                        <div class="stat-value-small" id="stat-latency">--</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        const mockData = {
+            "processing_time_ms": 143,
+            "detections": [
+                {
+                    "vehicle": "car", "confidence": 0.94,
+                    "bbox": [120, 80, 580, 420],
+                    "plates": [{ "plate": "MH12AB1234", "valid": true, "raw": "MH12AB1234", "bbox": [200, 360, 480, 410] }]
+                },
+                {
+                    "vehicle": "truck", "confidence": 0.87,
+                    "bbox": [600, 60, 980, 460],
+                    "plates": [{ "plate": "DL8CAB5678", "valid": false, "raw": "DL8CA85678", "bbox": [650, 400, 930, 445] }]
+                }
+            ]
+        };
+
+        const icons = {
+            car: `<svg viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`,
+            truck: `<svg viewBox="0 0 24 24"><path d="M10 17h4V5H2v12h3"/><path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>`,
+            bus: `<svg viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>`,
+            moto: `<svg viewBox="0 0 24 24"><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="M11 15v-4l-3-4h-2"/><path d="M15 15v-4l3-4h2"/><path d="M11 7h4"/></svg>`,
+            check: `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+            warn: `<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`
+        };
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            // Glitch trigger
+            setTimeout(() => {
+                document.getElementById('logo-block').classList.add('glitch-anim');
+            }, 500);
+
+            // Left Nav stagger
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach((item, index) => {
+                item.style.animation = `slideIn 0.4s ${index * 0.08 + 0.6}s ease forwards`;
+            });
+
+            // Center Panel & Right Sidebar reveal
+            setTimeout(() => {
+                document.querySelector('.center-panel').style.animation = `fadeInUp 0.6s ease forwards`;
+                document.querySelector('.right-sidebar').style.animation = `fadeInRight 0.6s 0.2s ease forwards`;
+            }, 1000);
+
+            // Interactivity
+            document.getElementById('upload-zone').addEventListener('click', startScanProcess);
+        });
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('sys-clock').textContent = now.toTimeString().split(' ')[0] + ' IST';
+        }
+
+        function startScanProcess() {
+            const uploadZone = document.getElementById('upload-zone');
+            uploadZone.classList.add('pulse-amber');
+            uploadZone.style.pointerEvents = 'none';
+            
+            setTimeout(() => {
+                uploadZone.style.display = 'none';
+                const viewer = document.getElementById('image-viewer');
+                viewer.classList.add('active');
+                
+                document.getElementById('scanline').style.display = 'block';
+                document.getElementById('analyzing-text').style.display = 'block';
+
+                const canvas = document.getElementById('main-canvas');
+                canvas.width = 1100;
+                canvas.height = 500;
+                drawBackgroundPlaceholder(canvas);
+
+                setTimeout(() => {
+                    document.getElementById('scanline').style.display = 'none';
+                    document.getElementById('analyzing-text').style.display = 'none';
+                    revealResults(canvas);
+                }, 3000);
+            }, 800);
+        }
+
+        function drawBackgroundPlaceholder(canvas) {
+            const ctx = canvas.getContext('2d');
+            
+            // Dark gradient base
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#040A0F');
+            grad.addColorStop(1, '#0A1520');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Road perspective silhouette
+            ctx.fillStyle = '#080F16';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2 - 100, 0);
+            ctx.lineTo(canvas.width/2 + 100, 0);
+            ctx.lineTo(canvas.width + 200, canvas.height);
+            ctx.lineTo(-200, canvas.height);
+            ctx.fill();
+
+            // Dashed lines
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([20, 20]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width/2, 0);
+            ctx.lineTo(canvas.width/2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function revealResults(canvas) {
+            const ctx = canvas.getContext('2d');
+
+            // Draw Bounding Boxes
+            mockData.detections.forEach(det => {
+                const [vx1, vy1, vx2, vy2] = det.bbox;
+                
+                // Vehicle Box
+                ctx.strokeStyle = '#00FF66';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#00FF66';
+                ctx.shadowBlur = 10;
+                ctx.strokeRect(vx1, vy1, vx2-vx1, vy2-vy1);
+                
+                // Corner targeting elements on bbox
+                const cv = 15;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(vx1, vy1+cv); ctx.lineTo(vx1, vy1); ctx.lineTo(vx1+cv, vy1);
+                ctx.moveTo(vx2, vy1+cv); ctx.lineTo(vx2, vy1); ctx.lineTo(vx2-cv, vy1);
+                ctx.moveTo(vx1, vy2-cv); ctx.lineTo(vx1, vy2); ctx.lineTo(vx1+cv, vy2);
+                ctx.moveTo(vx2, vy2-cv); ctx.lineTo(vx2, vy2); ctx.lineTo(vx2-cv, vy2);
+                ctx.stroke();
+
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = 'rgba(0, 255, 102, 0.2)';
+                ctx.fillRect(vx1, vy1, vx2-vx1, vy2-vy1);
+
+                // Vehicle Tag
+                ctx.fillStyle = '#00FF66';
+                ctx.fillRect(vx1, vy1 - 24, 130, 24);
+                ctx.fillStyle = '#040A0F';
+                ctx.font = 'bold 12px "JetBrains Mono"';
+                ctx.fillText(`${det.vehicle.toUpperCase()} [${(det.confidence * 100).toFixed(0)}%]`, vx1 + 6, vy1 - 8);
+
+                // Plate Box
+                det.plates.forEach(p => {
+                    const [px1, py1, px2, py2] = p.bbox;
+                    ctx.strokeStyle = '#FF6B00';
+                    ctx.shadowColor = '#FF6B00';
+                    ctx.shadowBlur = 10;
+                    ctx.strokeRect(px1, py1, px2-px1, py2-py1);
+                    
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#FF6B00';
+                    ctx.fillRect(px1, py2, px2-px1, 24);
+                    ctx.fillStyle = '#040A0F';
+                    ctx.fillText(p.plate, px1 + 6, py2 + 16);
+                });
+            });
+
+            // Populate JS Sidebar
+            const resultsList = document.getElementById('results-list');
+            resultsList.innerHTML = '';
+            
+            mockData.detections.forEach((det, index) => {
+                setTimeout(() => {
+                    const plate = det.plates[0];
+                    const isValid = plate.valid;
+                    
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <div class="vehicle-type">
+                                ${icons[det.vehicle] || icons.car}
+                                ${det.vehicle.toUpperCase()}
+                            </div>
+                            <div class="conf-wrapper">
+                                <div class="conf-bar" style="width: 0%" data-conf="${det.confidence * 100}"></div>
+                            </div>
+                        </div>
+                        <div class="plate-number" id="plate-${index}"></div>
+                        <div class="plate-status ${isValid ? '' : 'invalid'}">
+                            <div class="status-badge">
+                                ${isValid ? icons.check : icons.warn}
+                                ${isValid ? 'VERIFIED' : 'MISMATCH DETECTED'}
+                            </div>
+                            <div class="raw-text">${isValid ? '' : 'RAW: ' + plate.raw}</div>
+                        </div>
+                    `;
+                    resultsList.appendChild(card);
+                    
+                    // Trigger reflow
+                    void card.offsetWidth;
+                    card.classList.add('show');
+
+                    // Animate Confidence Bar
+                    setTimeout(() => {
+                        const bar = card.querySelector('.conf-bar');
+                        bar.style.width = bar.dataset.conf + '%';
+                    }, 300);
+
+                    // Typewriter for Plate
+                    typeWriter(`plate-${index}`, plate.plate, 50);
+
+                }, index * 250); // Stagger
+            });
+
+            // Update Statistics
+            setTimeout(() => {
+                animateValue("stat-total", 0, mockData.detections.length, 800);
+                animateValue("stat-latency", 0, mockData.processing_time_ms, 600);
+                
+                // Gauge Animation for valid ratio
+                const validCount = mockData.detections.reduce((acc, d) => acc + d.plates.filter(p => p.valid).length, 0);
+                const totalPlates = mockData.detections.reduce((acc, d) => acc + d.plates.length, 0);
+                const ratioPct = Math.round((validCount / totalPlates) * 100);
+                
+                animateValue("stat-ratio", 0, ratioPct, 1000);
+                
+                const gaugeFill = document.getElementById('gauge-fill');
+                // Circumference = 2 * pi * r = 2 * 3.14 * 20 = ~125.6
+                gaugeFill.style.strokeDasharray = 125.6;
+                const offset = 125.6 - (125.6 * ratioPct / 100);
+                gaugeFill.style.strokeDashoffset = offset;
+
+            }, 500);
+
+            // Format JSON Output
+            const jsonBody = document.getElementById('json-body');
+            const formattedJSON = syntaxHighlight(JSON.stringify(mockData, null, 4));
+            jsonBody.innerHTML = formattedJSON;
+        }
+
+        function typeWriter(elementId, text, speed) {
+            let i = 0;
+            const el = document.getElementById(elementId);
+            el.innerHTML = '';
+            function type() {
+                if (i < text.length) {
+                    el.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+            }
+            type();
+        }
+
+        function animateValue(id, start, end, duration) {
+            const obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start);
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        function syntaxHighlight(json) {
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                        match = match.replace(/"/g, ''); // remove quotes from key for cleaner look
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        function copyJSON() {
+            navigator.clipboard.writeText(JSON.stringify(mockData, null, 2));
+            const btn = document.querySelector('.json-actions .btn');
+            const original = btn.textContent;
+            btn.textContent = "COPIED!";
+            btn.style.borderColor = "var(--valid)";
+            btn.style.color = "var(--valid)";
+            setTimeout(() => {
+                btn.textContent = original;
+                btn.style.borderColor = "";
+                btn.style.color = "";
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
